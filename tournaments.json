@@ -1,16 +1,1 @@
-[
-  {
-    "name": "PUBG Squad Battle",
-    "price": 5000,
-    "entryFee": 200,
-    "rules": "No hacking\nNo teaming",
-    "admins": "Admin1, Admin2"
-  },
-  {
-    "name": "Free Fire Solo Cup",
-    "price": 3000,
-    "entryFee": 100,
-    "rules": "Solo only\nNo emulators",
-    "admins": "AdminX"
-  }
-]
+[]
