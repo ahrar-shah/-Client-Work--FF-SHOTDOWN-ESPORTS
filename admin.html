@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin • SHOTDOWN ESPORTS</title>
+  <style>
+    body { margin:0; background:#000; color:#fff; font-family:Arial, sans-serif; }
+    header { padding:16px; text-align:center; background:#111; border-bottom:1px solid #333; box-shadow:0 0 15px #f00; }
+    .wrap { max-width:1100px; margin:24px auto; padding:0 16px; display:grid; gap:24px; }
+    .card { background:#111; border:1px solid #333; border-radius:12px; padding:16px; box-shadow:0 0 12px #f00; }
+    .card h2 { margin:0 0 12px; color:#f66; }
+    label { display:block; margin:8px 0 4px; color:#f99; }
+    input, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid #333; background:#0a0a0a; color:#fff; }
+    textarea { min-height:80px; resize:vertical; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .btn { margin-top:12px; padding:10px 14px; background:#f00; color:#000; font-weight:700; border:none; border-radius:8px; cursor:pointer; box-shadow:0 0 8px #f00; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
+    .mini { background:#0f0f0f; border:1px solid #333; border-radius:10px; overflow:hidden; }
+    .mini img { width:100%; height:150px; object-fit:cover; }
+    .mini .meta { padding:10px; font-size:0.92rem; }
+    .danger { background:#ff5252; color:#000; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { padding:8px; border:1px solid #333; }
+    th { background:#1a1a1a; }
+  </style>
+
+  <script type="module">
+    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import {
+      getFirestore, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot,
+      deleteDoc, doc, setDoc
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+    import {
+      getStorage, ref, uploadBytes, getDownloadURL
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDgVpnLQIsUOXPAxymp3vZ4KOCkr2WJpGQ",
+      authDomain: "shotdown-esport.firebaseapp.com",
+      projectId: "shotdown-esport",
+      storageBucket: "shotdown-esport.firebasestorage.app",
+      messagingSenderId: "148073912260",
+      appId: "1:148073912260:web:14af1d00d221ff64b03691",
+      measurementId: "G-GXG592GSSJ"
+    };
+
+    const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    // ---------- Add Tournament ----------
+    async function handleAddTournament(e) {
+      e.preventDefault();
+      const imgFile = document.getElementById("t_img").files[0];
+      const name = document.getElementById("t_name").value.trim();
+      const price = document.getElementById("t_price").value.trim();
+      const entryFee = document.getElementById("t_fee").value.trim();
+      const rules = document.getElementById("t_rules").value.trim();
+      const admins = document.getElementById("t_admins").value.trim();
+      const whatsapp = document.getElementById("t_whatsapp").value.trim(); // digits only recommended
+
+      if (!imgFile || !name) {
+        alert("Image and Tournament Name are required");
+        return;
+      }
+
+      try {
+        // Upload image
+        const path = `uploads/${Date.now()}_${imgFile.name}`;
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, imgFile);
+        const imageUrl = await getDownloadURL(storageRef);
+
+        // Save Firestore
+        await addDoc(collection(db, "tournaments"), {
+          name,
+          price,
+          entryFee,
+          rules,
+          admins,
+          whatsapp,     // e.g. 923702723151 (without +)
+          imageUrl,
+          createdAt: serverTimestamp()
+        });
+
+        e.target.reset();
+        alert("Tournament added!");
+      } catch (err) {
+        console.error(err);
+        alert("Failed: " + err.message);
+      }
+    }
+
+    // ---------- List + Delete Tournaments ----------
+    function mountTournamentList() {
+      const wrap = document.getElementById("t_list");
+      const q = query(collection(db, "tournaments"), orderBy("createdAt", "desc"));
+      onSnapshot(q, (snap) => {
+        wrap.innerHTML = "";
+        if (snap.empty) {
+          wrap.innerHTML = `<div style="color:#aaa;">No tournaments yet.</div>`;
+          return;
+        }
+        snap.forEach(d => {
+          const t = d.data();
+          const el = document.createElement("div");
+          el.className = "mini";
+          el.innerHTML = `
+            <img src="${t.imageUrl || ""}" alt="${t.name || ""}">
+            <div class="meta">
+              <b>${t.name || "-"}</b><br/>
+              Price: ${t.price ?? "-"} • Fee: ${t.entryFee ?? "-"}<br/>
+              Admins: ${t.admins || "-"}<br/>
+              WhatsApp: ${t.whatsapp || "-"}<br/>
+              <button class="btn danger" data-id="${d.id}">Delete</button>
+            </div>
+          `;
+          wrap.appendChild(el);
+        });
+
+        wrap.querySelectorAll("button[data-id]").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Delete this tournament?")) return;
+            try {
+              await deleteDoc(doc(db, "tournaments", btn.dataset.id));
+            } catch (e) {
+              alert("Delete failed: " + e.message);
+            }
+          });
+        });
+      });
+    }
+
+    // ---------- Leaderboard Editor ----------
+    function slugify(s){ return s.toLowerCase().replace(/\s+/g,'_').replace(/[^\w\-]/g,'').slice(0,40); }
+
+    async function handleUpsertPlayer(e){
+      e.preventDefault();
+      const name = document.getElementById("p_name").value.trim();
+      const points = Number(document.getElementById("p_points").value || 0);
+      if(!name){ alert("Player name required"); return; }
+      const id = slugify(name);
+      try{
+        await setDoc(doc(db, "leaderboard", id), { name, points }, { merge:true });
+        e.target.reset();
+      }catch(err){ alert("Save failed: "+err.message); }
+    }
+
+    function mountPlayerTable(){
+      const tbody = document.querySelector("#p_table tbody");
+      const q = query(collection(db, "leaderboard"), orderBy("points","desc"));
+      onSnapshot(q, (snap)=>{
+        tbody.innerHTML = "";
+        if(snap.empty){ tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#aaa;">No players</td></tr>`; return; }
+        snap.forEach((d,i)=>{
+          const p = d.data();
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${i+1}</td>
+            <td>${p.name}</td>
+            <td>${p.points}</td>
+            <td><button class="btn danger" data-id="${d.id}">Delete</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll("button[data-id]").forEach(btn=>{
+          btn.addEventListener("click", async ()=>{
+            if(!confirm("Delete this player?")) return;
+            try{ await deleteDoc(doc(db,"leaderboard", btn.dataset.id)); }
+            catch(e){ alert("Delete failed: "+e.message); }
+          });
+        });
+      });
+    }
+
+    // Init
+    window.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("t_form").addEventListener("submit", handleAddTournament);
+      mountTournamentList();
+
+      document.getElementById("p_form").addEventListener("submit", handleUpsertPlayer);
+      mountPlayerTable();
+    });
+  </script>
+</head>
+<body>
+  <header><b>Admin Panel</b></header>
+  <div class="wrap">
+
+    <div class="card">
+      <h2>+ New Tournament</h2>
+      <form id="t_form">
+        <label>Upload Image</label>
+        <input type="file" id="t_img" accept="image/*" required>
+
+        <div class="row">
+          <div>
+            <label>Tournament Name</label>
+            <input id="t_name" placeholder="e.g., Solo Rush Cup" required>
+          </div>
+          <div>
+            <label>WhatsApp Number (without +)</label>
+            <input id="t_whatsapp" placeholder="923702723151">
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Price</label>
+            <input id="t_price" placeholder="e.g., 2000 PKR">
+          </div>
+          <div>
+            <label>Entry Fee</label>
+            <input id="t_fee" placeholder="e.g., 100 PKR">
+          </div>
+        </div>
+
+        <label>Rules</label>
+        <textarea id="t_rules" placeholder="Write rules..."></textarea>
+
+        <label>Admins</label>
+        <textarea id="t_admins" placeholder="Admin names, contacts..."></textarea>
+
+        <button class="btn" type="submit">Save Tournament</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>All Tournaments</h2>
+      <div id="t_list" class="grid">
+        <div style="color:#aaa;">Loading…</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Leaderboard Editor</h2>
+      <form id="p_form">
+        <div class="row">
+          <div>
+            <label>Player Name</label>
+            <input id="p_name" placeholder="e.g., HAYATO" required>
+          </div>
+          <div>
+            <label>Points</label>
+            <input id="p_points" type="number" placeholder="e.g., 1200" required>
+          </div>
+        </div>
+        <button class="btn" type="submit">Add / Update Player</button>
+      </form>
+
+      <table id="p_table">
+        <thead><tr><th>#</th><th>Player</th><th>Points</th><th>Action</th></tr></thead>
+        <tbody><tr><td colspan="4" style="text-align:center;color:#aaa;">Loading…</td></tr></tbody>
+      </table>
+    </div>
+
+  </div>
+</body>
+</html>
