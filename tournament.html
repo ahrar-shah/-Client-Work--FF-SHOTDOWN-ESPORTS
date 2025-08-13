@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Tournaments • SHOTDOWN ESPORTS</title>
-
-  <style>
+  <title>Tournaments</title>
+</head>
+<body>
+  <h1>Available Tournaments</h1>
+    <style>
     body { margin:0; background:#000; color:#fff; font-family:Arial, sans-serif; }
     header { padding:16px; text-align:center; background:#111; border-bottom:1px solid #333; box-shadow:0 0 15px #f00; }
     .wrap { max-width:1100px; margin:24px auto; padding:0 16px; }
@@ -20,75 +20,42 @@
     .btn { display:inline-block; padding:10px 12px; border-radius:8px; background:#f00; color:#000; font-weight:700; text-decoration:none; text-align:center; flex:1; box-shadow:0 0 8px #f00; }
     .empty { text-align:center; color:#aaa; padding:40px 0; }
   </style>
+  <div id="tournamentList"></div>
 
-  <script type="module">
-    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import {
-      getFirestore, collection, query, orderBy, onSnapshot
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
 
+  <script>
     const firebaseConfig = {
-      apiKey: "AIzaSyDgVpnLQIsUOXPAxymp3vZ4KOCkr2WJpGQ",
-      authDomain: "shotdown-esport.firebaseapp.com",
-      projectId: "shotdown-esport",
-      storageBucket: "shotdown-esport.firebasestorage.app",
-      messagingSenderId: "148073912260",
-      appId: "1:148073912260:web:14af1d00d221ff64b03691",
-      measurementId: "G-GXG592GSSJ"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
 
-    const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-    const grid = document.addEventListener("DOMContentLoaded", () => {
-      const listEl = document.querySelector("#list");
-      const q = query(collection(db, "tournaments"), orderBy("createdAt", "desc"));
-
-      onSnapshot(q, (snap) => {
-        listEl.innerHTML = "";
-        if (snap.empty) {
-          listEl.innerHTML = `<div class="empty">No tournaments yet.</div>`;
-          return;
-        }
-        snap.forEach(doc => {
-          const t = doc.data();
-          const img = t.imageUrl || "";
-          const name = t.name || "Tournament";
-          const price = t.price ?? "-";
-          const fee = t.entryFee ?? "-";
-          const rules = t.rules || "-";
-          const admins = t.admins || "-";
-          const wa = (t.whatsapp || "").replace(/[^\d]/g, ""); // only digits
-
-          const msg = encodeURIComponent(`Hello HAYATO, I wanted to take part in ${name}`);
-          const waLink = wa ? `https://wa.me/${wa}?text=${msg}` : "#";
-
-          const card = document.createElement("div");
-          card.className = "card";
-          card.innerHTML = `
-            <img src="${img}" alt="${name}">
-            <div class="content">
-              <div class="title">${name}</div>
-              <div class="meta">Price: <b>${price}</b> • Entry Fee: <b>${fee}</b></div>
-              <div class="rules"><b>Rules:</b> ${rules}</div>
-              <div class="admins"><b>Admins:</b> ${admins}</div>
-              <div class="btns">
-                <a class="btn" href="${waLink}" target="_blank" rel="noopener">Register Now</a>
-              </div>
-            </div>
-          `;
-          listEl.appendChild(card);
-        });
+    db.collection("tournaments").get().then(snapshot => {
+      let output = "";
+      snapshot.forEach(doc => {
+        const t = doc.data();
+        output += `
+          <div style="border:1px solid #ccc; padding:10px; margin:10px;">
+            <b>${t.name}</b><br>
+            Price: ${t.price} | Entry Fee: ${t.entryFee}<br>
+            Rules: ${t.rules}<br>
+            Admins: ${t.admins}<br>
+            <a href="https://wa.me/923000000000?text=Hello,%20I%20want%20to%20join%20${encodeURIComponent(t.name)}" target="_blank">
+              Register Now
+            </a>
+          </div>
+        `;
       });
+      document.getElementById("tournamentList").innerHTML = output;
     });
   </script>
-</head>
-<body>
-  <header><b>All Tournaments</b></header>
-  <div class="wrap">
-    <div id="list" class="grid">
-      <div class="empty">Loading tournaments…</div>
-    </div>
-  </div>
 </body>
 </html>
