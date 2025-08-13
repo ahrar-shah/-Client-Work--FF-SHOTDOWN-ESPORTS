@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tournaments • SHOTDOWN ESPORTS</title>
+
+  <style>
+    body { margin:0; background:#000; color:#fff; font-family:Arial, sans-serif; }
+    header { padding:16px; text-align:center; background:#111; border-bottom:1px solid #333; box-shadow:0 0 15px #f00; }
+    .wrap { max-width:1100px; margin:24px auto; padding:0 16px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
+    .card { background:#111; border:1px solid #333; border-radius:12px; overflow:hidden; box-shadow:0 0 12px #f00; display:flex; flex-direction:column; }
+    .card img { width:100%; height:170px; object-fit:cover; border-bottom:1px solid #222; }
+    .card .content { padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+    .title { font-size:1.05rem; color:#f66; font-weight:700; }
+    .meta { font-size:0.92rem; color:#ddd; }
+    .rules, .admins { font-size:0.9rem; color:#bbb; white-space:pre-wrap; }
+    .btns { margin-top:auto; display:flex; gap:10px; }
+    .btn { display:inline-block; padding:10px 12px; border-radius:8px; background:#f00; color:#000; font-weight:700; text-decoration:none; text-align:center; flex:1; box-shadow:0 0 8px #f00; }
+    .empty { text-align:center; color:#aaa; padding:40px 0; }
+  </style>
+
+  <script type="module">
+    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import {
+      getFirestore, collection, query, orderBy, onSnapshot
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDgVpnLQIsUOXPAxymp3vZ4KOCkr2WJpGQ",
+      authDomain: "shotdown-esport.firebaseapp.com",
+      projectId: "shotdown-esport",
+      storageBucket: "shotdown-esport.firebasestorage.app",
+      messagingSenderId: "148073912260",
+      appId: "1:148073912260:web:14af1d00d221ff64b03691",
+      measurementId: "G-GXG592GSSJ"
+    };
+
+    const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const grid = document.addEventListener("DOMContentLoaded", () => {
+      const listEl = document.querySelector("#list");
+      const q = query(collection(db, "tournaments"), orderBy("createdAt", "desc"));
+
+      onSnapshot(q, (snap) => {
+        listEl.innerHTML = "";
+        if (snap.empty) {
+          listEl.innerHTML = `<div class="empty">No tournaments yet.</div>`;
+          return;
+        }
+        snap.forEach(doc => {
+          const t = doc.data();
+          const img = t.imageUrl || "";
+          const name = t.name || "Tournament";
+          const price = t.price ?? "-";
+          const fee = t.entryFee ?? "-";
+          const rules = t.rules || "-";
+          const admins = t.admins || "-";
+          const wa = (t.whatsapp || "").replace(/[^\d]/g, ""); // only digits
+
+          const msg = encodeURIComponent(`Hello HAYATO, I wanted to take part in ${name}`);
+          const waLink = wa ? `https://wa.me/${wa}?text=${msg}` : "#";
+
+          const card = document.createElement("div");
+          card.className = "card";
+          card.innerHTML = `
+            <img src="${img}" alt="${name}">
+            <div class="content">
+              <div class="title">${name}</div>
+              <div class="meta">Price: <b>${price}</b> • Entry Fee: <b>${fee}</b></div>
+              <div class="rules"><b>Rules:</b> ${rules}</div>
+              <div class="admins"><b>Admins:</b> ${admins}</div>
+              <div class="btns">
+                <a class="btn" href="${waLink}" target="_blank" rel="noopener">Register Now</a>
+              </div>
+            </div>
+          `;
+          listEl.appendChild(card);
+        });
+      });
+    });
+  </script>
+</head>
+<body>
+  <header><b>All Tournaments</b></header>
+  <div class="wrap">
+    <div id="list" class="grid">
+      <div class="empty">Loading tournaments…</div>
+    </div>
+  </div>
+</body>
+</html>
