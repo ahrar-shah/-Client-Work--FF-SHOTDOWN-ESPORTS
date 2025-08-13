@@ -1,93 +1,120 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Admin Panel</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel</title>
+<style>
+    body { background:#000; color:#f00; font-family:Arial; padding:20px; }
+    h1 { text-align:center; text-shadow:0 0 10px #f00; }
+    .section { background:#111; border:1px solid #333; padding:20px; margin:20px auto; max-width:600px; border-radius:10px; box-shadow:0 0 15px #f00; }
+    label { display:block; margin-top:10px; }
+    input { width:100%; padding:8px; margin-top:5px; border-radius:5px; border:none; }
+    button { margin-top:10px; padding:10px 20px; background:#f00; color:black; border:none; cursor:pointer; font-weight:bold; border-radius:5px; }
+    table { width:100%; color:#fff; border-collapse:collapse; margin-top:10px; }
+    th, td { border:1px solid #f00; padding:5px; }
+</style>
 </head>
 <body>
-  <h1>Add Tournament</h1>
-  <form id="tournamentForm">
-    <input type="text" id="name" placeholder="Tournament Name" required><br>
-    <input type="number" id="price" placeholder="Price" required><br>
-    <input type="number" id="entryFee" placeholder="Entry Fee" required><br>
-    <textarea id="rules" placeholder="Rules" required></textarea><br>
-    <input type="text" id="admins" placeholder="Admins" required><br>
-    <button type="submit">Upload</button>
-  </form>
 
-  <h2>Existing Tournaments</h2>
-  <div id="tournamentList"></div>
+<h1>Admin Panel</h1>
 
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"></script>
-  
-  <script>
-    // Firebase Config
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_BUCKET",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
+<div id="loginSection">
+    <label>Password:</label>
+    <input type="password" id="passwordInput">
+    <button onclick="checkPassword()">Login</button>
+</div>
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    firebase.auth().signInAnonymously();
+<div id="adminContent" style="display:none;">
+    <div class="section">
+        <h2>💰 Edit Tournament</h2>
+        <label>Match Time:</label>
+        <input type="text" id="matchTimeInput">
+        <label>Room ID:</label>
+        <input type="text" id="roomIdInput">
+        <label>Room Pass:</label>
+        <input type="text" id="roomPassInput">
+        <button onclick="saveTournament()">Save Tournament</button>
+    </div>
 
-    // Add Tournament
-    document.getElementById("tournamentForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
+    <div class="section">
+        <h2>🏆 Edit Leaderboard</h2>
+        <label>Player Name:</label>
+        <input type="text" id="playerNameInput">
+        <label>Points:</label>
+        <input type="number" id="playerPointsInput">
+        <button onclick="addPlayer()">Add Player</button>
+        <table>
+            <thead>
+                <tr><th>Player</th><th>Points</th><th>Action</th></tr>
+            </thead>
+            <tbody id="leaderboardAdminBody"></tbody>
+        </table>
+    </div>
+</div>
 
-      const name = document.getElementById("name").value;
-      const price = document.getElementById("price").value;
-      const entryFee = document.getElementById("entryFee").value;
-      const rules = document.getElementById("rules").value;
-      const admins = document.getElementById("admins").value;
-
-      await db.collection("tournaments").add({
-        name,
-        price,
-        entryFee,
-        rules,
-        admins
-      });
-
-      alert("Tournament added successfully!");
-      document.getElementById("tournamentForm").reset();
-      loadTournaments();
-    });
-
-    // Load & Display Tournaments with Delete Button
-    async function loadTournaments() {
-      const snapshot = await db.collection("tournaments").get();
-      let output = "";
-      snapshot.forEach(doc => {
-        const t = doc.data();
-        output += `
-          <div style="border:1px solid #ccc; padding:10px; margin:10px;">
-            <b>${t.name}</b><br>
-            Price: ${t.price} | Entry Fee: ${t.entryFee}<br>
-            Rules: ${t.rules}<br>
-            Admins: ${t.admins}<br>
-            <button onclick="deleteTournament('${doc.id}')">Delete</button>
-          </div>
-        `;
-      });
-      document.getElementById("tournamentList").innerHTML = output;
+<script>
+    function checkPassword() {
+        const pass = document.getElementById("passwordInput").value;
+        if (pass === "hayato") {
+            document.getElementById("loginSection").style.display = "none";
+            document.getElementById("adminContent").style.display = "block";
+            loadData();
+        } else {
+            alert("Wrong Password!");
+        }
     }
 
-    // Delete Tournament
-    async function deleteTournament(id) {
-      if (confirm("Are you sure you want to delete this tournament?")) {
-        await db.collection("tournaments").doc(id).delete();
-        alert("Tournament deleted!");
-        loadTournaments();
-      }
+    function loadData() {
+        const t = JSON.parse(localStorage.getItem("tournamentData")) || {time:"", id:"", pass:""};
+        document.getElementById("matchTimeInput").value = t.time;
+        document.getElementById("roomIdInput").value = t.id;
+        document.getElementById("roomPassInput").value = t.pass;
+
+        renderLeaderboard();
     }
 
-    loadTournaments();
-  </script>
+    function saveTournament() {
+        const data = {
+            time: document.getElementById("matchTimeInput").value,
+            id: document.getElementById("roomIdInput").value,
+            pass: document.getElementById("roomPassInput").value
+        };
+        localStorage.setItem("tournamentData", JSON.stringify(data));
+        alert("Tournament Saved!");
+    }
+
+    function renderLeaderboard() {
+        const lb = JSON.parse(localStorage.getItem("leaderboardData")) || [];
+        const tbody = document.getElementById("leaderboardAdminBody");
+        tbody.innerHTML = "";
+        lb.forEach((p, i) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>${p.name}</td><td>${p.points}</td>
+                            <td><button onclick="deletePlayer(${i})">Delete</button></td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function addPlayer() {
+        const name = document.getElementById("playerNameInput").value;
+        const points = parseInt(document.getElementById("playerPointsInput").value) || 0;
+        if (!name) return alert("Enter player name");
+        const lb = JSON.parse(localStorage.getItem("leaderboardData")) || [];
+        lb.push({name, points});
+        localStorage.setItem("leaderboardData", JSON.stringify(lb));
+        document.getElementById("playerNameInput").value = "";
+        document.getElementById("playerPointsInput").value = "";
+        renderLeaderboard();
+    }
+
+    function deletePlayer(index) {
+        const lb = JSON.parse(localStorage.getItem("leaderboardData")) || [];
+        lb.splice(index, 1);
+        localStorage.setItem("leaderboardData", JSON.stringify(lb));
+        renderLeaderboard();
+    }
+</script>
+
 </body>
 </html>
